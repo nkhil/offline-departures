@@ -77,6 +77,15 @@ self.addEventListener('fetch', (event) => {
   }
 
   if (isStaticAsset || url.pathname === '/data.json') {
+    if (url.pathname === '/data.json') {
+      event.respondWith(
+        caches
+          .match(event.request)
+          .then((cached) => cached || new Response('{"error":"cache-miss"}', { status: 503, headers: { 'Content-Type': 'application/json' } }))
+      )
+      return
+    }
+
     event.respondWith(
       caches.match(event.request).then((cached) => {
         const networkFetch = fetch(event.request)
