@@ -79,6 +79,38 @@ function isTimetable(value: unknown): value is Timetable {
   })
 }
 
+function extractTimetable(value: unknown): Timetable | null {
+  if (isTimetable(value)) return value
+
+  if (value && typeof value === "object") {
+    const maybeNested = (value as { timetable?: unknown }).timetable
+    if (isTimetable(maybeNested)) return maybeNested
+  }
+
+  return null
+}
+
+async function readTimetableFromCaches(): Promise<Timetable | null> {
+  if (typeof window === "undefined" || !("caches" in window)) return null
+
+  const cacheNames = await caches.keys()
+  for (const cacheName of cacheNames.reverse()) {
+    const cache = await caches.open(cacheName)
+    const response = await cache.match("/data.json")
+    if (!response) continue
+
+    try {
+      const cachedJson = (await response.clone().json()) as unknown
+      const timetable = extractTimetable(cachedJson)
+      if (timetable) return timetable
+    } catch {
+      // Ignore invalid cached payloads and keep searching
+    }
+  }
+
+  return null
+}
+
 function BoardPanel({ trains }: { trains: TrainWithCountdown[] }) {
   if (trains.length === 0) {
     return <div className="no-trains">No more trains today</div>
@@ -153,13 +185,22 @@ export default function Home() {
         const response = await fetch("/data.json")
         if (!response.ok) throw new Error(`HTTP ${response.status}`)
         const json = (await response.json()) as unknown
-        if (!isTimetable(json)) {
+        const parsed = extractTimetable(json)
+        if (!parsed) {
           throw new Error("Invalid timetable format in data.json")
         }
-        setTimetable(json)
+        setTimetable(parsed)
         setStatus("Timetable loaded")
       } catch (error) {
-        console.error(error)
+        console.error("Primary timetable fetch failed:", error)
+
+        const cachedTimetable = await readTimetableFromCaches()
+        if (cachedTimetable) {
+          setTimetable(cachedTimetable)
+          setStatus("Loaded from offline cache")
+          return
+        }
+
         setStatus("Failed to load timetable")
       }
     }

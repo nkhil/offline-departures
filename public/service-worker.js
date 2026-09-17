@@ -1,4 +1,4 @@
-const CACHE = 'offline-v3'
+const CACHE = 'offline-v4'
 const PRECACHE = ['/', '/data.json', '/manifest.webmanifest', '/192.png', '/512.png']
 
 self.addEventListener('message', (event) => {
