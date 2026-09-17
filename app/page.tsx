@@ -16,6 +16,15 @@ type Timetable = Record<DayType, Record<Direction, Train[]>>
 
 type TrainWithCountdown = Train & { minutesAway: number }
 
+const DEFAULT_OFFLINE_FETCH_TIMEOUT_MS = 3000
+
+function getOfflineFetchTimeoutMs(): number {
+  const rawTimeout = process.env.NEXT_PUBLIC_OFFLINE_FETCH_TIMEOUT_MS
+  const parsedTimeout = Number.parseInt(rawTimeout ?? "", 10)
+  if (!Number.isFinite(parsedTimeout) || parsedTimeout <= 0) return DEFAULT_OFFLINE_FETCH_TIMEOUT_MS
+  return parsedTimeout
+}
+
 function getDayType(date: Date): DayType {
   const day = date.getDay()
   if (day === 0) return "sunday"
@@ -137,6 +146,7 @@ export default function Home() {
   const [timetable, setTimetable] = useState<Timetable | null>(null)
   const [status, setStatus] = useState("Loading timetable...")
   const [now, setNow] = useState(() => new Date())
+  const offlineFetchTimeoutMs = getOfflineFetchTimeoutMs()
 
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return
@@ -181,8 +191,25 @@ export default function Home() {
 
   useEffect(() => {
     const load = async () => {
+      if (!navigator.onLine) {
+        const cachedTimetable = await readTimetableFromCaches()
+        if (cachedTimetable) {
+          setTimetable(cachedTimetable)
+          setStatus("Loaded from offline cache")
+          return
+        }
+
+        setStatus("Offline and no cached timetable")
+        return
+      }
+
+      const controller = new AbortController()
+      const timeoutId = window.setTimeout(() => {
+        controller.abort()
+      }, offlineFetchTimeoutMs)
+
       try {
-        const response = await fetch("/data.json")
+        const response = await fetch("/data.json", { signal: controller.signal })
         if (!response.ok) throw new Error(`HTTP ${response.status}`)
         const json = (await response.json()) as unknown
         const parsed = extractTimetable(json)
@@ -202,11 +229,13 @@ export default function Home() {
         }
 
         setStatus("Failed to load timetable")
+      } finally {
+        window.clearTimeout(timeoutId)
       }
     }
 
     load()
-  }, [])
+  }, [offlineFetchTimeoutMs])
 
   useEffect(() => {
     const timer = window.setInterval(() => {
