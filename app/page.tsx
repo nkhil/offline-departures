@@ -93,6 +93,17 @@ function extractTimetable(value: unknown): Timetable | null {
 async function readTimetableFromCaches(): Promise<Timetable | null> {
   if (typeof window === "undefined" || !("caches" in window)) return null
 
+  const directMatch = await caches.match("/data.json")
+  if (directMatch) {
+    try {
+      const directJson = (await directMatch.clone().json()) as unknown
+      const timetable = extractTimetable(directJson)
+      if (timetable) return timetable
+    } catch {
+      // Ignore invalid cached payloads and keep searching
+    }
+  }
+
   const cacheNames = await caches.keys()
   for (const cacheName of cacheNames.reverse()) {
     const cache = await caches.open(cacheName)

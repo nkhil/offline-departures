@@ -1,4 +1,4 @@
-const CACHE = 'offline-v4'
+const CACHE = 'offline-v5'
 const PRECACHE = ['/', '/data.json', '/manifest.webmanifest', '/192.png', '/512.png']
 
 self.addEventListener('message', (event) => {
@@ -61,17 +61,17 @@ self.addEventListener('fetch', (event) => {
 
   if (isDocument) {
     event.respondWith(
-      fetch(event.request)
-        .then((response) => {
-          const copy = response.clone()
-          caches.open(CACHE).then((cache) => cache.put(event.request, copy))
-          return response
-        })
-        .catch(async () => {
-          const cachedPage = await caches.match(event.request)
-          if (cachedPage) return cachedPage
-          return caches.match('/')
-        })
+      caches.match(event.request).then((cachedPage) => {
+        if (cachedPage) return cachedPage
+
+        return fetch(event.request)
+          .then((response) => {
+            const copy = response.clone()
+            caches.open(CACHE).then((cache) => cache.put(event.request, copy))
+            return response
+          })
+          .catch(() => caches.match('/'))
+      })
     )
     return
   }
