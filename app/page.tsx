@@ -21,6 +21,31 @@ export default function Home() {
           updateViaCache: 'all',
         })
         console.log('SW registered:', registration.scope)
+
+        const warmUrls = Array.from(
+          new Set([
+            '/',
+            '/data.json',
+            '/manifest.webmanifest',
+            '/192.png',
+            '/512.png',
+            ...Array.from(document.querySelectorAll('script[src], link[rel="stylesheet"][href], link[as="font"][href]')).map(
+              (el) => (el as HTMLScriptElement | HTMLLinkElement).src || (el as HTMLLinkElement).href
+            ),
+          ])
+        )
+
+        const postWarmMessage = (reg: ServiceWorkerRegistration) => {
+          reg.active?.postMessage({ type: 'WARM_CACHE', urls: warmUrls })
+        }
+
+        if (registration.active) {
+          postWarmMessage(registration)
+        } else {
+          navigator.serviceWorker.ready.then(postWarmMessage).catch(() => {
+            // Ignore warm-cache setup failures
+          })
+        }
       } catch (err) {
         console.error('SW registration failed:', err)
       }

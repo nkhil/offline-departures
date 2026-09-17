@@ -1,6 +1,37 @@
 const CACHE = 'offline-v2'
 const PRECACHE = ['/', '/data.json', '/manifest.webmanifest', '/192.png', '/512.png']
 
+self.addEventListener('message', (event) => {
+  if (event.data?.type !== 'WARM_CACHE' || !Array.isArray(event.data.urls)) return
+
+  event.waitUntil(
+    caches.open(CACHE).then(async (cache) => {
+      const sameOriginUrls = event.data.urls
+        .filter((url) => typeof url === 'string')
+        .map((url) => {
+          try {
+            return new URL(url, self.location.origin)
+          } catch {
+            return null
+          }
+        })
+        .filter((url) => url && url.origin === self.location.origin)
+
+      await Promise.all(
+        sameOriginUrls.map(async (url) => {
+          const request = new Request(url.href, { credentials: 'same-origin' })
+          try {
+            const response = await fetch(request)
+            if (response.ok) await cache.put(request, response.clone())
+          } catch {
+            // Ignore warm-cache fetch failures
+          }
+        })
+      )
+    })
+  )
+})
+
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE).then((cache) => cache.addAll(PRECACHE))
