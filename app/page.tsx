@@ -22,6 +22,16 @@ export default function Home() {
         })
         console.log('SW registered:', registration.scope)
 
+        const warmAssetUrls = Array.from(
+          document.querySelectorAll('script[src], link[rel="stylesheet"][href], link[as="font"][href]')
+        )
+          .map((el) => {
+            if (el instanceof HTMLScriptElement) return el.src
+            if (el instanceof HTMLLinkElement) return el.href
+            return null
+          })
+          .filter((url): url is string => Boolean(url))
+
         const warmUrls = Array.from(
           new Set([
             '/',
@@ -29,9 +39,7 @@ export default function Home() {
             '/manifest.webmanifest',
             '/192.png',
             '/512.png',
-            ...Array.from(document.querySelectorAll('script[src], link[rel="stylesheet"][href], link[as="font"][href]')).map(
-              (el) => (el as HTMLScriptElement | HTMLLinkElement).src || (el as HTMLLinkElement).href
-            ),
+            ...warmAssetUrls,
           ])
         )
 
