@@ -159,29 +159,6 @@ export default function Home() {
           updateViaCache: "all",
         })
 
-        const warmAssetUrls = Array.from(
-          document.querySelectorAll('script[src], link[rel="stylesheet"][href], link[as="font"][href]')
-        )
-          .map((element) => {
-            if (element instanceof HTMLScriptElement) return element.src
-            if (element instanceof HTMLLinkElement) return element.href
-            return null
-          })
-          .filter((url): url is string => Boolean(url))
-
-        const warmUrls = Array.from(
-          new Set(["/", "/data.json", "/manifest.webmanifest", "/192.png", "/512.png", ...warmAssetUrls])
-        )
-
-        const postWarmMessage = (reg: ServiceWorkerRegistration) => {
-          reg.active?.postMessage({ type: "WARM_CACHE", urls: warmUrls })
-        }
-
-        if (registration.active) {
-          postWarmMessage(registration)
-        } else {
-          navigator.serviceWorker.ready.then(postWarmMessage).catch(() => {})
-        }
       } catch (error) {
         console.error("SW registration failed:", error)
       }
